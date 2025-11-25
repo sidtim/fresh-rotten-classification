@@ -21,3 +21,46 @@ pre-commit = "^4.5.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+format = { docstring-code-format = true }
+
+[tool.ruff.lint]
+select = [
+    # isort - джентельменский набор
+    "I",
+    # pycodestyle - джентельменский набор
+    "E", "W",
+    # Pyflakes - джентельменский набор
+    "F",
+    # pyupgrage
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # flake8-builtins
+    "A",
+    # flake8-return
+    "RET",
+    # flake8-use-pathlib
+    "PTH",
+    # flynt
+    "FLY",
+    # mccabe
+    "C90",
+    # NumPy-specific rules
+    "NPY",
+    # pep8-naming
+    "N",
+    # Ruff-specific rules
+    "RUF",
+    # Pyling - very strict, may be use when have enough time
+    "PL",
+    # refurb - also may be overwhelming
+    "FURB"
+]
+
+
+pycodestyle = { max-doc-length = 105 }
