@@ -16,6 +16,7 @@ torchmetrics = "^1.8.2"
 tqdm = "^4.67.1"
 seaborn = "^0.13.2"
 pre-commit = "^4.5.0"
+dvc = "^3.64.0"
 
 
 [build-system]
