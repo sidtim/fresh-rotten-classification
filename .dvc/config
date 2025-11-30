@@ -1,0 +1,7 @@
+[core]
+    remote = tas-remote-fresh-rotten-cls
+['remote "tas-remote-fresh-rotten-cls"']
+    url = s3://mlops-fresh-rotten-classification
+    endpointurl = https://storage.yandexcloud.net
+    access_key_id = YCAJE73p6wn0I6x1l6ge1kixW
+    secret_access_key = YCOJXYruqf16G4r5BQDTTNn4SnBQkdgFXbLsI3Fb

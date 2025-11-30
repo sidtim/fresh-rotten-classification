@@ -109,3 +109,7 @@ Thumbs.db
 
 # Logs directory
 logs/
+
+# Data for DL
+data/
+/data
