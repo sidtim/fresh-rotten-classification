@@ -1,8 +1,8 @@
+from typing import Literal
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
 from torchvision import models
-from typing import Optional, Literal
 
 
 class SimpleCNN(nn.Module):
@@ -35,16 +35,16 @@ class SimpleCNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Feature extraction
-        x = F.relu(self.bn1(self.conv1(x)))
+        x = torch.relu(self.bn1(self.conv1(x)))
         x = self.pool1(x)
 
-        x = F.relu(self.bn2(self.conv2(x)))
+        x = torch.relu(self.bn2(self.conv2(x)))
         x = self.pool2(x)
 
-        x = F.relu(self.bn3(self.conv3(x)))
+        x = torch.relu(self.bn3(self.conv3(x)))
         x = self.pool3(x)
 
-        x = F.relu(self.bn4(self.conv4(x)))
+        x = torch.relu(self.bn4(self.conv4(x)))
         x = self.pool4(x)
 
         # Flatten
@@ -52,11 +52,9 @@ class SimpleCNN(nn.Module):
 
         # Classification
         x = self.dropout(x)
-        x = F.relu(self.fc1(x))
+        x = torch.relu(self.fc1(x))
         x = self.dropout(x)
-        x = self.fc2(x)
-
-        return x
+        return self.fc2(x)
 
 
 class ResNetClassifier(nn.Module):
@@ -73,11 +71,11 @@ class ResNetClassifier(nn.Module):
 
         # Загружаем предобученную модель
         if model_name == "resnet18":
-            self.backbone = models.resnet18(pretrained=pretrained)
+            self.backbone = models.resnet18(weights="DEFAULT" if pretrained else None)
         elif model_name == "resnet34":
-            self.backbone = models.resnet34(pretrained=pretrained)
+            self.backbone = models.resnet34(weights="DEFAULT" if pretrained else None)
         elif model_name == "resnet50":
-            self.backbone = models.resnet50(pretrained=pretrained)
+            self.backbone = models.resnet50(weights="DEFAULT" if pretrained else None)
         else:
             raise ValueError(f"Unsupported model: {model_name}")
 
@@ -107,15 +105,15 @@ def create_model(
     freeze_backbone: bool = False,
 ) -> nn.Module:
     """Фабрика для создания модели."""
-
     if model_type == "simple_cnn":
         return SimpleCNN(num_classes=num_classes)
-    elif model_type in ["resnet18", "resnet34", "resnet50"]:
+
+    if model_type in ["resnet18", "resnet34", "resnet50"]:
         return ResNetClassifier(
             model_name=model_type,
             num_classes=num_classes,
             pretrained=pretrained,
             freeze_backbone=freeze_backbone,
         )
-    else:
-        raise ValueError(f"Unknown model type: {model_type}")
+
+    raise ValueError(f"Unknown model type: {model_type}")

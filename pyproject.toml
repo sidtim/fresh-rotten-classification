@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Andrey Timonin <an-timwork@yandex.ru>"]
 readme = "README.md"
+package-mode = false # Чтоб не создавался пакет
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.15"
@@ -34,6 +35,13 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 100
 format = { docstring-code-format = true }
+
+# Игнорировать проверки кириллицы
+ignore = ["RUF002", "RUF003", "PLR0913"]
+
+# Игнорирую из-за особенностей моего проекта
+[tool.ruff.lint.per-file-ignores]
+"run_training.py" = ["E402"]
 
 [tool.ruff.lint]
 select = [
@@ -66,9 +74,9 @@ select = [
     # Ruff-specific rules
     "RUF",
     # Pyling - very strict, may be use when have enough time
-    "PL",
+    # "PL",
     # refurb - also may be overwhelming
-    "FURB"
+    # "FURB"
 ]
 
 

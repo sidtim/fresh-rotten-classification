@@ -1,9 +1,9 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torchmetrics import Accuracy
+from typing import Any
+
 import pytorch_lightning as pl
-from typing import Any, Dict, Optional
+import torch
+from torch import nn
+from torchmetrics import Accuracy
 
 from .model import create_model
 
@@ -45,7 +45,7 @@ class FreshRottenClassifier(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
-    def training_step(self, batch: Any, batch_idx: int) -> Dict[str, torch.Tensor]:
+    def training_step(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
@@ -60,7 +60,7 @@ class FreshRottenClassifier(pl.LightningModule):
 
         return {"loss": loss, "preds": preds, "targets": y}
 
-    def validation_step(self, batch: Any, batch_idx: int) -> Dict[str, torch.Tensor]:
+    def validation_step(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
@@ -75,7 +75,7 @@ class FreshRottenClassifier(pl.LightningModule):
 
         return {"loss": loss, "preds": preds, "targets": y}
 
-    def test_step(self, batch: Any, batch_idx: int) -> Dict[str, torch.Tensor]:
+    def test_step(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
         x, y = batch
         logits = self(x)
         loss = self.criterion(logits, y)
@@ -90,10 +90,12 @@ class FreshRottenClassifier(pl.LightningModule):
 
         return {"loss": loss, "preds": preds, "targets": y}
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Настройка оптимизатора и scheduler."""
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
         )
 
         # Используем StepLR вместо ReduceLROnPlateau чтобы избежать проблем с verbose
@@ -105,7 +107,11 @@ class FreshRottenClassifier(pl.LightningModule):
 
         return {
             "optimizer": optimizer,
-            "lr_scheduler": {"scheduler": scheduler, "interval": "epoch", "frequency": 1},
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
         }
 
     def on_train_epoch_end(self) -> None:

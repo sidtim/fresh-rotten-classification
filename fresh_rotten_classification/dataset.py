@@ -1,41 +1,41 @@
-import os
-from typing import Optional, Tuple, Dict, List
-from PIL import Image
-import torch
-from torch.utils.data import Dataset, DataLoader, random_split
-from torchvision import transforms
+from pathlib import Path
+
 import pytorch_lightning as pl
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset, random_split
+from torchvision import transforms
 
 
 class FreshRottenDataset(Dataset):
     """Датасет для классификации свежих и гнилых овощей/фруктов."""
 
-    def __init__(self, root_dir: str, transform: Optional[transforms.Compose] = None):
+    def __init__(self, root_dir: str, transform: transforms.Compose | None = None):
         """
         Args:
             root_dir: Путь к папке с данными (должна содержать fresh_product/ и rotten_product/)
             transform: Трансформации для аугментации данных
         """
-        self.root_dir = root_dir
+        self.root_dir = Path(root_dir)
         self.transform = transform
         self.classes = ["fresh_product", "rotten_product"]
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(self.classes)}
 
         self.samples = []
         for class_name in self.classes:
-            class_dir = os.path.join(root_dir, class_name)
-            if not os.path.exists(class_dir):
+            class_dir = self.root_dir / class_name
+            if not class_dir.exists():
                 continue
 
-            for img_name in os.listdir(class_dir):
-                if img_name.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
-                    img_path = os.path.join(class_dir, img_name)
-                    self.samples.append((img_path, self.class_to_idx[class_name]))
+            for img_name in class_dir.iterdir():
+                if img_name.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
+                    img_path = class_dir / img_name.name
+                    self.samples.append((str(img_path), self.class_to_idx[class_name]))
 
     def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         img_path, label = self.samples[idx]
 
         # Загрузка изображения
@@ -57,10 +57,10 @@ class FreshRottenDataModule(pl.LightningDataModule):
         num_workers: int = 4,
         val_split: float = 0.15,
         use_augmentation: bool = True,
-        image_size: Tuple[int, int] = (224, 224),
+        image_size: tuple[int, int] = (224, 224),
     ):
         super().__init__()
-        self.data_dir = data_dir
+        self.data_dir = Path(data_dir)
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.val_split = val_split
@@ -73,23 +73,26 @@ class FreshRottenDataModule(pl.LightningDataModule):
 
     def _get_train_transform(self) -> transforms.Compose:
         """Трансформации для тренировочных данных."""
-        transform_list = [
-            transforms.Resize(self.image_size),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=15),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-
         if not self.use_augmentation:
             # Без аугментации - только базовые преобразования
-            transform_list = [
+            return transforms.Compose(
+                [
+                    transforms.Resize(self.image_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                ]
+            )
+
+        # С аугментацией
+        return transforms.Compose(
+            [
                 transforms.Resize(self.image_size),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomRotation(degrees=15),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
-
-        return transforms.Compose(transform_list)
+        )
 
     def _get_val_test_transform(self) -> transforms.Compose:
         """Трансформации для валидационных и тестовых данных."""
@@ -101,10 +104,10 @@ class FreshRottenDataModule(pl.LightningDataModule):
             ]
         )
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         """Настройка датасетов для разных стадий."""
         # Полный тренировочный датасет
-        full_train_dir = os.path.join(self.data_dir, "train")
+        full_train_dir = self.data_dir / "train"
         full_dataset = FreshRottenDataset(full_train_dir, transform=self.train_transform)
 
         # Разделяем на train и val
@@ -114,7 +117,7 @@ class FreshRottenDataModule(pl.LightningDataModule):
         self.train_dataset, self.val_dataset = random_split(full_dataset, [train_size, val_size])
 
         # Тестовый датасет
-        test_dir = os.path.join(self.data_dir, "test")
+        test_dir = self.data_dir / "test"
         self.test_dataset = FreshRottenDataset(test_dir, transform=self.val_test_transform)
 
     def train_dataloader(self) -> DataLoader:

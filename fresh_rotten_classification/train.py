@@ -1,13 +1,13 @@
 import argparse
-import os
 from pathlib import Path
-import torch
+
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, RichProgressBar
+import torch
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from .lightning_module import FreshRottenClassifier
 from .dataset import FreshRottenDataModule
+from .lightning_module import FreshRottenClassifier
 
 
 def parse_args():
@@ -25,10 +25,16 @@ def parse_args():
         help="Fraction of training data to use for validation",
     )
     parser.add_argument(
-        "--use_augmentation", action="store_true", help="Use data augmentation during training"
+        "--use_augmentation",
+        action="store_true",
+        help="Use data augmentation during training",
     )
     parser.add_argument(
-        "--image_size", type=int, nargs=2, default=[224, 224], help="Image size (height, width)"
+        "--image_size",
+        type=int,
+        nargs=2,
+        default=[224, 224],
+        help="Image size (height, width)",
     )
 
     # Model arguments
@@ -40,10 +46,14 @@ def parse_args():
         help="Type of model to use",
     )
     parser.add_argument(
-        "--pretrained", action="store_true", help="Use pretrained weights (for ResNet models)"
+        "--pretrained",
+        action="store_true",
+        help="Use pretrained weights (for ResNet models)",
     )
     parser.add_argument(
-        "--freeze_backbone", action="store_true", help="Freeze backbone weights (for ResNet models)"
+        "--freeze_backbone",
+        action="store_true",
+        help="Freeze backbone weights (for ResNet models)",
     )
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay")
@@ -73,8 +83,10 @@ def main():
         torch.set_float32_matmul_precision("medium")
 
     # Создаем директории если их нет
-    os.makedirs(args.checkpoint_dir, exist_ok=True)
-    os.makedirs(args.log_dir, exist_ok=True)
+    checkpoint_path = Path(args.checkpoint_dir)
+    log_path = Path(args.log_dir)
+    checkpoint_path.mkdir(parents=True, exist_ok=True)
+    log_path.mkdir(parents=True, exist_ok=True)
 
     # Инициализируем DataModule
     data_module = FreshRottenDataModule(
@@ -98,7 +110,7 @@ def main():
 
     # Callbacks
     checkpoint_callback = ModelCheckpoint(
-        dirpath=args.checkpoint_dir,
+        dirpath=checkpoint_path,
         filename="{epoch:02d}-{val_acc:.2f}",
         monitor="val_acc",
         mode="max",
@@ -108,13 +120,16 @@ def main():
     )
 
     early_stopping_callback = EarlyStopping(
-        monitor="val_loss", patience=10, mode="min", verbose=True
+        monitor="val_loss",
+        patience=10,
+        mode="min",
+        verbose=True,
     )
 
     progress_bar_callback = RichProgressBar()
 
     # Logger
-    logger = TensorBoardLogger(args.log_dir, name="fresh_rotten_classification")
+    logger = TensorBoardLogger(log_path, name="fresh_rotten_classification")
 
     # Trainer
     trainer = pl.Trainer(
@@ -143,7 +158,7 @@ def main():
     print("Testing the model...")
     trainer.test(model, datamodule=data_module, ckpt_path="best")
 
-    print(f"\nTraining completed!")
+    print("\nTraining completed!")
     print(f"Best model saved at: {checkpoint_callback.best_model_path}")
 
 
