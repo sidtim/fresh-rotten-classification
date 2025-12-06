@@ -111,8 +111,8 @@ Thumbs.db
 # Logs directory
 logs/
 
-# Data for DL
-data/
+# Data for DL. Ignore only in the root
+/data/
 
 # Checkpoints
 checkpoints/
