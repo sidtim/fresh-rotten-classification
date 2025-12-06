@@ -1,10 +1,11 @@
 # Byte-compiled / optimized / DLL files
 pycache/
-\*.pyc
-\*.pyo
-\*.pyd
-\*.pyc
-\*.so
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+*.so
+__pycache__/
 
 # C extensions
 \*.c
