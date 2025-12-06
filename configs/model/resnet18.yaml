@@ -1,0 +1,5 @@
+# Конфигурация для ResNet18
+type: "resnet18"
+num_classes: 2
+pretrained: true
+freeze_backbone: false

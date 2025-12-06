@@ -1,0 +1,8 @@
+# Конфигурация аугментации
+augmentation:
+  horizontal_flip_prob: 0.5
+  rotation_degrees: 15
+  resize_size: [224, 224]
+  normalize:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]

@@ -2,19 +2,20 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
+from omegaconf import DictConfig
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, random_split
 from torchvision import transforms
 
 
 class FreshRottenDataset(Dataset):
-    """Датасет для классификации свежих и гнилых овощей/фруктов."""
+    """Dataset for fresh/rotten vegetables and fruits classification."""
 
     def __init__(self, root_dir: str, transform: transforms.Compose | None = None):
         """
         Args:
-            root_dir: Путь к папке с данными (должна содержать fresh_product/ и rotten_product/)
-            transform: Трансформации для аугментации данных
+            root_dir: Path to data directory
+            transform: Transformations for data augmentation
         """
         self.root_dir = Path(root_dir)
         self.transform = transform
@@ -38,7 +39,7 @@ class FreshRottenDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         img_path, label = self.samples[idx]
 
-        # Загрузка изображения
+        # Load image
         image = Image.open(img_path).convert("RGB")
 
         if self.transform:
@@ -48,101 +49,97 @@ class FreshRottenDataset(Dataset):
 
 
 class FreshRottenDataModule(pl.LightningDataModule):
-    """Lightning DataModule для управления данными."""
+    """Lightning DataModule for managing data."""
 
-    def __init__(
-        self,
-        data_dir: str = "./data",
-        batch_size: int = 32,
-        num_workers: int = 4,
-        val_split: float = 0.15,
-        use_augmentation: bool = True,
-        image_size: tuple[int, int] = (224, 224),
-    ):
+    def __init__(self, cfg: DictConfig):
         super().__init__()
-        self.data_dir = Path(data_dir)
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.val_split = val_split
-        self.use_augmentation = use_augmentation
-        self.image_size = image_size
+        self.cfg = cfg
 
-        # Определяем трансформации
+        # Define transforms
         self.train_transform = self._get_train_transform()
         self.val_test_transform = self._get_val_test_transform()
 
     def _get_train_transform(self) -> transforms.Compose:
-        """Трансформации для тренировочных данных."""
-        if not self.use_augmentation:
-            # Без аугментации - только базовые преобразования
+        """Transformations for training data."""
+        if not self.cfg.data.use_augmentation:
+            # Without augmentation - only basic transforms
             return transforms.Compose(
                 [
-                    transforms.Resize(self.image_size),
+                    transforms.Resize(self.cfg.data.image_size),
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                    transforms.Normalize(
+                        mean=self.cfg.data.augmentation.normalize.mean,
+                        std=self.cfg.data.augmentation.normalize.std,
+                    ),
                 ]
             )
 
-        # С аугментацией
+        # With augmentation
         return transforms.Compose(
             [
-                transforms.Resize(self.image_size),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(degrees=15),
+                transforms.Resize(self.cfg.data.image_size),
+                transforms.RandomHorizontalFlip(p=self.cfg.data.augmentation.horizontal_flip_prob),
+                transforms.RandomRotation(degrees=self.cfg.data.augmentation.rotation_degrees),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                transforms.Normalize(
+                    mean=self.cfg.data.augmentation.normalize.mean,
+                    std=self.cfg.data.augmentation.normalize.std,
+                ),
             ]
         )
 
     def _get_val_test_transform(self) -> transforms.Compose:
-        """Трансформации для валидационных и тестовых данных."""
+        """Transformations for validation and test data."""
         return transforms.Compose(
             [
-                transforms.Resize(self.image_size),
+                transforms.Resize(self.cfg.data.image_size),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                transforms.Normalize(
+                    mean=self.cfg.data.augmentation.normalize.mean,
+                    std=self.cfg.data.augmentation.normalize.std,
+                ),
             ]
         )
 
     def setup(self, stage: str | None = None):
-        """Настройка датасетов для разных стадий."""
-        # Полный тренировочный датасет
-        full_train_dir = self.data_dir / "train"
+        """Setup datasets for different stages."""
+        # Full training dataset
+        full_train_dir = Path(self.cfg.data.dir) / "train"
         full_dataset = FreshRottenDataset(full_train_dir, transform=self.train_transform)
 
-        # Разделяем на train и val
-        val_size = int(len(full_dataset) * self.val_split)
+        # Split into train and val
+        val_size = int(len(full_dataset) * self.cfg.data.val_split)
         train_size = len(full_dataset) - val_size
 
         self.train_dataset, self.val_dataset = random_split(full_dataset, [train_size, val_size])
 
-        # Тестовый датасет
-        test_dir = self.data_dir / "test"
+        # Test dataset
+        test_dir = Path(self.cfg.data.dir) / "test"
         self.test_dataset = FreshRottenDataset(test_dir, transform=self.val_test_transform)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.cfg.data.batch_size,
             shuffle=True,
-            num_workers=self.num_workers,
+            num_workers=self.cfg.data.num_workers,
             pin_memory=True,
         )
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.val_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.cfg.data.batch_size,
             shuffle=False,
-            num_workers=self.num_workers,
+            num_workers=self.cfg.data.num_workers,
             pin_memory=True,
         )
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.cfg.data.batch_size,
             shuffle=False,
-            num_workers=self.num_workers,
+            num_workers=self.cfg.data.num_workers,
             pin_memory=True,
         )

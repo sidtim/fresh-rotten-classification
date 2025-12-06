@@ -1,0 +1,8 @@
+# Конфигурация для простой CNN
+model:
+  type: "simple_cnn"
+  num_classes: 2
+
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001

@@ -1,0 +1,11 @@
+# configs/data/default.yaml
+defaults:
+  - augmentation # ← это загрузит configs/data/augmentation.yaml
+
+# Остальные параметры данных
+dir: "./data"
+batch_size: 32
+num_workers: 4
+val_split: 0.15
+use_augmentation: true
+image_size: [224, 224]

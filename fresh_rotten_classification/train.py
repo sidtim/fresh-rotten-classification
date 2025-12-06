@@ -1,116 +1,50 @@
-import argparse
+# train.py
 from pathlib import Path
 
+import hydra
 import pytorch_lightning as pl
 import torch
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from .dataset import FreshRottenDataModule
 from .lightning_module import FreshRottenClassifier
 
-
-def parse_args():
-    """Парсинг аргументов командной строки."""
-    parser = argparse.ArgumentParser(description="Train Fresh/Rotten classifier")
-
-    # Data arguments
-    parser.add_argument("--data_dir", type=str, default="./data", help="Path to data directory")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training")
-    parser.add_argument("--num_workers", type=int, default=4, help="Number of data loading workers")
-    parser.add_argument(
-        "--val_split",
-        type=float,
-        default=0.15,
-        help="Fraction of training data to use for validation",
-    )
-    parser.add_argument(
-        "--use_augmentation",
-        action="store_true",
-        help="Use data augmentation during training",
-    )
-    parser.add_argument(
-        "--image_size",
-        type=int,
-        nargs=2,
-        default=[224, 224],
-        help="Image size (height, width)",
-    )
-
-    # Model arguments
-    parser.add_argument(
-        "--model_type",
-        type=str,
-        default="resnet18",
-        choices=["simple_cnn", "resnet18", "resnet34", "resnet50"],
-        help="Type of model to use",
-    )
-    parser.add_argument(
-        "--pretrained",
-        action="store_true",
-        help="Use pretrained weights (for ResNet models)",
-    )
-    parser.add_argument(
-        "--freeze_backbone",
-        action="store_true",
-        help="Freeze backbone weights (for ResNet models)",
-    )
-    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate")
-    parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay")
-
-    # Training arguments
-    parser.add_argument(
-        "--max_epochs", type=int, default=50, help="Maximum number of epochs to train"
-    )
-    parser.add_argument("--gpu", action="store_true", help="Use GPU for training if available")
-    parser.add_argument(
-        "--checkpoint_dir",
-        type=str,
-        default="./checkpoints",
-        help="Directory to save model checkpoints",
-    )
-    parser.add_argument("--log_dir", type=str, default="./logs", help="Directory to save logs")
-
-    return parser.parse_args()
+# Автоматически определяем путь к конфигам
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent  # поднимаемся на уровень выше
+configs_dir = project_root / "configs"
 
 
-def main():
-    """Основная функция для обучения модели."""
-    args = parse_args()
+@hydra.main(
+    version_base=None,
+    config_path=str(configs_dir),
+    config_name="main",
+)
+def main(cfg: DictConfig):
+    """Main training function."""
+    # Set seed for reproducibility
+    pl.seed_everything(cfg.seed)
 
-    # Настройка precision для CUDA для лучшей производительности
-    if args.gpu and torch.cuda.is_available():
+    # Print configuration
+    print("Configuration:")
+    print(OmegaConf.to_yaml(cfg))
+    print("\n" + "=" * 50 + "\n")
+
+    # Setup CUDA precision if using GPU
+    if cfg.training.gpu and torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
 
-    # Создаем директории если их нет
-    checkpoint_path = Path(args.checkpoint_dir)
-    log_path = Path(args.log_dir)
-    checkpoint_path.mkdir(parents=True, exist_ok=True)
-    log_path.mkdir(parents=True, exist_ok=True)
+    # Initialize DataModule
+    data_module = FreshRottenDataModule(cfg)
 
-    # Инициализируем DataModule
-    data_module = FreshRottenDataModule(
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        val_split=args.val_split,
-        use_augmentation=args.use_augmentation,
-        image_size=tuple(args.image_size),
-    )
-
-    # Инициализируем модель
-    model = FreshRottenClassifier(
-        model_type=args.model_type,
-        learning_rate=args.learning_rate,
-        weight_decay=args.weight_decay,
-        pretrained=args.pretrained,
-        freeze_backbone=args.freeze_backbone,
-        num_classes=2,
-    )
+    # Initialize model
+    model = FreshRottenClassifier(cfg)
 
     # Callbacks
     checkpoint_callback = ModelCheckpoint(
-        dirpath=checkpoint_path,
+        dirpath=cfg.training.checkpoint_dir,
         filename="{epoch:02d}-{val_acc:.2f}",
         monitor="val_acc",
         mode="max",
@@ -121,7 +55,7 @@ def main():
 
     early_stopping_callback = EarlyStopping(
         monitor="val_loss",
-        patience=10,
+        patience=cfg.training.early_stopping_patience,
         mode="min",
         verbose=True,
     )
@@ -129,13 +63,13 @@ def main():
     progress_bar_callback = RichProgressBar()
 
     # Logger
-    logger = TensorBoardLogger(log_path, name="fresh_rotten_classification")
+    logger = TensorBoardLogger(cfg.training.log_dir, name=cfg.name)
 
     # Trainer
     trainer = pl.Trainer(
-        max_epochs=args.max_epochs,
-        accelerator="gpu" if args.gpu and torch.cuda.is_available() else "cpu",
-        devices=1 if args.gpu and torch.cuda.is_available() else None,
+        max_epochs=cfg.training.max_epochs,
+        accelerator="gpu" if cfg.training.gpu and torch.cuda.is_available() else "cpu",
+        devices=1 if cfg.training.gpu and torch.cuda.is_available() else None,
         callbacks=[checkpoint_callback, early_stopping_callback, progress_bar_callback],
         logger=logger,
         log_every_n_steps=10,
@@ -144,16 +78,16 @@ def main():
         enable_progress_bar=True,
     )
 
-    # Обучение
-    print(f"Starting training with model: {args.model_type}")
-    print(f"Using GPU: {args.gpu and torch.cuda.is_available()}")
-    print(f"Use augmentation: {args.use_augmentation}")
-    print(f"Batch size: {args.batch_size}")
-    print(f"Learning rate: {args.learning_rate}")
+    # Training
+    print(f"Starting training with model: {cfg.model.type}")
+    print(f"Using GPU: {cfg.training.gpu and torch.cuda.is_available()}")
+    print(f"Use augmentation: {cfg.data.use_augmentation}")
+    print(f"Batch size: {cfg.data.batch_size}")
+    print(f"Learning rate: {cfg.training.learning_rate}")
 
     trainer.fit(model, datamodule=data_module)
 
-    # Тестирование
+    # Testing
     print("\n" + "=" * 50)
     print("Testing the model...")
     trainer.test(model, datamodule=data_module, ckpt_path="best")
