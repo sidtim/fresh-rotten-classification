@@ -112,4 +112,6 @@ logs/
 
 # Data for DL
 data/
-/data
+
+# Checkpoints
+checkpoints/

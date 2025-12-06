@@ -22,6 +22,9 @@ botocore = "^1.41.5"
 s3transfer = "^0.15.0"
 dvc-s3 = "^3.2.2"
 aiohttp = "^3.13.2"
+pytorch-lightning = "^2.6.0"
+tensorboardx = "^2.6.4"
+tensorboard = "^2.20.0"
 
 
 [build-system]
