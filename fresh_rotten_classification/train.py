@@ -1,15 +1,22 @@
-# train.py
 from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
 import torch
+from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
-from pytorch_lightning.loggers import TensorBoardLogger
 
 from .dataset import FreshRottenDataModule
 from .lightning_module import FreshRottenClassifier
+
+# from .dvc_utils import check_and_download_data
+from .mlflow_logger import setup_mlflow
+
+# # Разрешить DictConfig для безопасной загрузки чекпоинтов
+# torch.serialization.add_safe_globals([DictConfig])
+
+# logger = logging.getLogger(__name__)
 
 # Автоматически определяем путь к конфигам
 current_file = Path(__file__).resolve()
@@ -24,13 +31,15 @@ configs_dir = project_root / "configs"
 )
 def main(cfg: DictConfig):
     """Main training function."""
+    # Настройка MLflow
+    mlflow_logger, mlflow_callbacks = setup_mlflow(cfg)
+
     # Set seed for reproducibility
     pl.seed_everything(cfg.seed)
 
     # Print configuration
-    print("Configuration:")
-    print(OmegaConf.to_yaml(cfg))
-    print("\n" + "=" * 50 + "\n")
+    logger.info("Configuration:")
+    logger.info(OmegaConf.to_yaml(cfg))
 
     # Setup CUDA precision if using GPU
     if cfg.training.gpu and torch.cuda.is_available():
@@ -43,57 +52,55 @@ def main(cfg: DictConfig):
     model = FreshRottenClassifier(cfg)
 
     # Callbacks
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=cfg.training.checkpoint_dir,
-        filename="{epoch:02d}-{val_acc:.2f}",
-        monitor="val_acc",
-        mode="max",
-        save_top_k=3,
-        save_last=True,
-        verbose=True,
-    )
+    callbacks = [
+        ModelCheckpoint(
+            dirpath=cfg.training.checkpoint_dir,
+            filename="{epoch:02d}-{val_acc:.2f}",
+            monitor="val_acc",
+            mode="max",
+            save_top_k=3,
+            save_last=True,
+        ),
+        EarlyStopping(
+            monitor="val_loss",
+            patience=cfg.training.early_stopping_patience,
+            mode="min",
+        ),
+        RichProgressBar(),
+    ]
 
-    early_stopping_callback = EarlyStopping(
-        monitor="val_loss",
-        patience=cfg.training.early_stopping_patience,
-        mode="min",
-        verbose=True,
-    )
+    # Добавляем MLflow callbacks если есть
+    if mlflow_callbacks:
+        callbacks.extend(mlflow_callbacks)
 
-    progress_bar_callback = RichProgressBar()
+    # Настройка логгеров
+    loggers = []
 
-    # Logger
-    logger = TensorBoardLogger(cfg.training.log_dir, name=cfg.name)
+    # MLflow logger (для гиперпараметров и git commit)
+    if mlflow_logger:
+        loggers.append(mlflow_logger)
 
     # Trainer
     trainer = pl.Trainer(
         max_epochs=cfg.training.max_epochs,
         accelerator="gpu" if cfg.training.gpu and torch.cuda.is_available() else "cpu",
         devices=1 if cfg.training.gpu and torch.cuda.is_available() else None,
-        callbacks=[checkpoint_callback, early_stopping_callback, progress_bar_callback],
-        logger=logger,
+        callbacks=callbacks,
+        logger=loggers if loggers else True,
         log_every_n_steps=10,
         enable_model_summary=True,
-        deterministic=True,
         enable_progress_bar=True,
     )
 
     # Training
-    print(f"Starting training with model: {cfg.model.type}")
-    print(f"Using GPU: {cfg.training.gpu and torch.cuda.is_available()}")
-    print(f"Use augmentation: {cfg.data.use_augmentation}")
-    print(f"Batch size: {cfg.data.batch_size}")
-    print(f"Learning rate: {cfg.training.learning_rate}")
-
+    logger.info(f"Starting training with model: {cfg.model.type}")
     trainer.fit(model, datamodule=data_module)
 
     # Testing
-    print("\n" + "=" * 50)
-    print("Testing the model...")
+    logger.info("Testing the model...")
     trainer.test(model, datamodule=data_module, ckpt_path="best")
 
-    print("\nTraining completed!")
-    print(f"Best model saved at: {checkpoint_callback.best_model_path}")
+    logger.info("Training completed!")
 
 
 if __name__ == "__main__":
