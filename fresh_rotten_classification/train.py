@@ -8,6 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
 
 from .dataset import FreshRottenDataModule
+from .dvc_utils import check_and_download_data
 from .lightning_module import FreshRottenClassifier
 
 # from .dvc_utils import check_and_download_data
@@ -31,6 +32,11 @@ configs_dir = project_root / "configs"
 )
 def main(cfg: DictConfig):
     """Main training function."""
+
+    if not check_and_download_data(cfg.data.dir):
+        logger.error("Can't download data from DVC")
+        return
+
     # Настройка MLflow
     mlflow_logger, mlflow_callbacks = setup_mlflow(cfg)
 
