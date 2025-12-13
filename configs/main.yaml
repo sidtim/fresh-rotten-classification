@@ -1,0 +1,23 @@
+defaults:
+  - data: default
+  - model: default
+  - training: default
+  - mlflow: default # ← добавили MLflow конфиг
+  - _self_
+
+hydra:
+  run:
+    dir: runs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  job_logging:
+    disable_existing_loggers: false
+
+name: "fresh_rotten_classification"
+seed: 42
+
+# DVC настройки
+dvc:
+  enabled: true
+  remote: "s3"
+  force_download: false

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Andrey Timonin <an-timwork@yandex.ru>"]
 readme = "README.md"
+package-mode = false # Чтоб не создавался пакет
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.15"
@@ -16,6 +17,17 @@ torchmetrics = "^1.8.2"
 tqdm = "^4.67.1"
 seaborn = "^0.13.2"
 pre-commit = "^4.5.0"
+dvc = "^3.64.0"
+boto3 = "^1.41.5"
+botocore = "^1.41.5"
+s3transfer = "^0.15.0"
+dvc-s3 = "^3.2.2"
+aiohttp = "^3.13.2"
+pytorch-lightning = "^2.6.0"
+tensorboardx = "^2.6.4"
+tensorboard = "^2.20.0"
+hydra-core = "^1.3.2"
+loguru = "^0.7.3"
 
 
 [build-system]
@@ -25,6 +37,13 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 100
 format = { docstring-code-format = true }
+
+# Игнорировать проверки кириллицы
+ignore = ["RUF002", "RUF003", "PLR0913"]
+
+# Игнорирую из-за особенностей моего проекта
+[tool.ruff.lint.per-file-ignores]
+"run_training.py" = ["E402"]
 
 [tool.ruff.lint]
 select = [
@@ -57,10 +76,10 @@ select = [
     # Ruff-specific rules
     "RUF",
     # Pyling - very strict, may be use when have enough time
-    "PL",
+    # "PL",
     # refurb - also may be overwhelming
-    "FURB"
+    # "FURB"
 ]
 
 
-pycodestyle = { max-doc-length = 105 }
+pycodestyle = { max-doc-length = 120 }
