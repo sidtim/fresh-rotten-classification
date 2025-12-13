@@ -116,6 +116,9 @@ pip install poetry
 # Установка зависимостей
 poetry install
 
+# Установка хуков
+poetry run pre-commit install
+
 # Запуск pre-commit проверок
 poetry run pre-commit run -a
 
